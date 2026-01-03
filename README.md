@@ -10,38 +10,70 @@ This tool allows you to automatically append the current GPS coordinates of your
     - Skips files that are already geotagged.
     - Fails gracefully if GPS is unavailable.
 
-## Prerequisites
-1.  **Pydroid 3** app installed on your Android device.
-2.  **Pydroid Repository Plugin** (usually needed to install libraries, though `androidhelper` is built-in or easily added).
-3.  **Permissions**: Pydroid 3 must have **Location** and **Storage** permissions allowed in Android Settings.
+---
 
-## Installation
-1.  Save the `geo_renamer.py` script to your device (e.g., in `/storage/emulated/0/Documents/Scripts/`).
+## How to Run on Android (Step-by-Step)
 
-## Usage
+### Phase 1: Preparation (Do this once)
+1.  **Install the "Pydroid Permissions Plugin"**
+    *   Go to the Google Play Store.
+    *   Search for "Pydroid Permissions Plugin".
+    *   Install it. (This is mandatory for accessing the GPS hardware and the File System).
 
-Open Pydroid 3, go to **Terminal**, and navigate to where you saved the script.
+2.  **Configure Pydroid Permissions**
+    *   Open the **Pydroid 3** app.
+    *   Android will likely ask for permissions immediately. **Allow everything** (especially "Files/Storage" and "Location").
+    *   *Double check*: Go to your phone's **Settings > Apps > Pydroid 3 > Permissions**. Ensure **Location** is set to "**Allow only while using the app**" (or "Always allow" if available).
 
-### Basic Usage
-To geotag all files in a folder:
+### Phase 2: Get the Code onto the Device
+Since typing git commands and handling authentication keys on a mobile touchscreen is often painful, the "Download ZIP" method is usually faster for mobile.
 
-```bash
-python geo_renamer.py /storage/emulated/0/Documents/MyPhotos
-```
+1.  **Download the Repo**
+    *   Open Chrome (or any browser) on your Android device.
+    *   Go to your GitHub repository URL.
+    *   Tap the **Green Code button** -> **Download ZIP**.
+    *   Once downloaded, open your "Files" app (e.g., "Google Files" or "My Files").
+    *   Find the ZIP in your Downloads folder and **Extract it**. You should now have a folder named `geotag-script-main` (or similar) in your Downloads.
 
-### Dry Run (Test Mode)
-To see what *would* happen without actually changing any filenames:
+2.  **Create your "Target" Directory**
+    *   While you are in your Files app, create a folder where you want to test this.
+    *   Let's call it: `Internal Storage > Documents > GPS_Test_Folder`
 
-```bash
-python geo_renamer.py /storage/emulated/0/Documents/MyPhotos --dry-run
-```
+### Phase 3: Dependencies
+*   **Note**: This specific script (`geo_renamer.py`) only uses built-in libraries, so you generally *do not* need to install anything via Pip.
+*   However, if you wish to verify your environment:
+    1.  Open Pydroid 3.
+    2.  Tap the Menu icon (top left, three lines) -> **Pip**.
+    3.  You can verify `watchdog` is not needed for this version, but `androidhelper` should clearly work out of the box.
 
-### Adjust Timeout
-If getting a GPS lock takes too long (default 30s), increase the timeout:
+### Phase 4: Run the Script
+Now we use the Pydroid Terminal to run the script.
 
-```bash
-python geo_renamer.py /storage/emulated/0/Documents/MyPhotos --timeout 60
-```
+1.  **Open the Terminal**
+    *   In Pydroid, tap **Menu > Terminal**.
+
+2.  **Navigate to your Code**
+    *   Type the following commands (assuming you extracted the zip to Downloads):
+    ```bash
+    cd /sdcard/Download/geotag-script-main
+    ```
+    *   *Tip*: You can type `ls` to list files and make sure `geo_renamer.py` is there.
+
+3.  **Execute the Script**
+    *   Run the script and point it to your test folder:
+    ```bash
+    python geo_renamer.py /sdcard/Documents/GPS_Test_Folder
+    ```
+
+---
+
+## How to Run on Mac (for Testing)
+If you want to test the renaming logic on your computer (using simulated IP-based location):
+
+1.  **Run the Mac wrapper**:
+    ```bash
+    python3 mac_renamer.py /path/to/test/folder --dry-run
+    ```
 
 ## Troubleshooting
 *   **"Android module not found"**: Ensure you are running this inside Pydroid 3.
