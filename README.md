@@ -67,6 +67,22 @@ Now we use the Pydroid Terminal to run the script.
 
 ---
 
+## How to Run on Chromebook
+
+Chromebooks can run this script using the **Pydroid 3 app** from the Play Store, just like a phone.
+
+1.  **Install Pydroid 3**: Open the Play Store on your Chromebook and install **Pydroid 3**.
+2.  **Install Permissions Plugin**: Search for and install **Pydroid Permissions Plugin**.
+3.  **Check Location**:
+    *   Most Chromebooks do **not** have a GPS chip.
+    *   They rely on Wi-Fi for location.
+    *   This script is smart enough to use "Network" location if "GPS" is missing, but you MUST ensure **Location** is enabled in your Chromebook settings and permissions are granted to Pydroid 3.
+4.  **Run**: Follow the same "Run on Android" steps above.
+
+*Alternative*: If you use **Linux (Beta)** on your Chromebook, you can use the `mac_renamer.py` script instead, which uses IP-based location.
+
+---
+
 ## How to Run on Mac (for Testing)
 If you want to test the renaming logic on your computer (using simulated IP-based location):
 
@@ -79,3 +95,11 @@ If you want to test the renaming logic on your computer (using simulated IP-base
 *   **"Android module not found"**: Ensure you are running this inside Pydroid 3.
 *   **"Timed out"**: Make sure your Location/GPS is turned ON in Android settings. Move outdoors for a better signal.
 *   **Permission Denied**: Check Android Settings -> Apps -> Pydroid 3 -> Permissions. Enable **Files and Media** (or Storage) and **Location**.
+
+### "I cannot see/change permissions!"
+If your device settings are greyed out or missing:
+1.  Run the `fix_permissions.py` script included in this folder.
+2.  It attempts to force the system to show the "Allow" dialogs.
+3.  On **Chromebooks**, you often need to go to:
+    *   Settings -> Apps -> **Manage Google Play preferences** -> Android Settings -> Apps -> Pydroid 3.
+    *   (You cannot just use the normal ChromeOS settings menu).
