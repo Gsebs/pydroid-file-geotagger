@@ -1,6 +1,15 @@
+try:
+    import android
+except ImportError:
+    try:
+        import androidhelper as android
+    except ImportError:
+        print("Error: Neither 'android' nor 'androidhelper' modules found.")
+        print("Make sure you are running this in Pydroid 3 with the Repository Plugin installed.")
+        import sys
+        sys.exit(1)
 
-import androidhelper
-droid = androidhelper.Android()
+droid = android.Android()
 
 print("Attempting to request permissions...")
 # This often forces the dialog to appear in Pydroid 3
