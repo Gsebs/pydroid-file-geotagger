@@ -113,6 +113,7 @@ class GeoTagger:
     def get_termux_location(self):
         """
         Attempts to get location via `termux-location` command.
+        Tries providers in order: 'gps', then 'network', then 'passive'.
         """
         import shutil
         import subprocess
@@ -121,37 +122,44 @@ class GeoTagger:
         if not shutil.which("termux-location"):
             return None
 
-        logger.info("SL4A failed/missing. Trying 'termux-location'...")
-        try:
-            # First, check 'last' known location for speed
-            cmd_last = ["termux-location", "-p", "gps", "-r", "last"]
-            proc = subprocess.run(cmd_last, capture_output=True, text=True, timeout=3)
-            if proc.returncode == 0 and proc.stdout.strip():
-                data = json.loads(proc.stdout)
-                lat = data.get("latitude")
-                lng = data.get("longitude")
-                # Ensure data is not too old? For now assume OK.
-                if lat and lng:
-                    return f"_Lat_{lat:.5f}_Lng_{lng:.5f}"
-            
-            # If last failed, try a fresh request (blocking)
-            # This is critical if the GPS hasn't been used recently
-            logger.info("No cached location. Requesting fresh GPS update (this may take 10-20s)...")
-            cmd_fresh = ["termux-location", "-p", "gps", "-r", "once"]
-            proc = subprocess.run(cmd_fresh, capture_output=True, text=True, timeout=25)
-            
-            if proc.returncode == 0 and proc.stdout.strip():
-                data = json.loads(proc.stdout)
-                lat = data.get("latitude")
-                lng = data.get("longitude")
-                if lat and lng:
-                    return f"_Lat_{lat:.5f}_Lng_{lng:.5f}"
-            
-        except subprocess.TimeoutExpired:
-            logger.error("Termux location request timed out.")
-        except Exception as e:
-            logger.warning(f"Termux location attempt failed: {e}")
+        logger.info("Trying 'termux-location'...")
         
+        # Define providers to try. 
+        # Zebra MC33/Warehosue devices often lack GPS chips (indoor only), so 'network' is crucial.
+        providers = ['gps', 'network', 'passive']
+        
+        for provider in providers:
+            try:
+                # 1. Try 'last' known location first (fast)
+                logger.info(f"Checking last known location (provider: {provider})...")
+                cmd_last = ["termux-location", "-p", provider, "-r", "last"]
+                proc = subprocess.run(cmd_last, capture_output=True, text=True, timeout=3)
+                
+                if proc.returncode == 0 and proc.stdout.strip():
+                    data = json.loads(proc.stdout)
+                    # Check if 'latitude' key exists (some errors return JSON with 'error')
+                    if "latitude" in data:
+                        logger.info(f"Location found via {provider} (cached).")
+                        return f"_Lat_{data['latitude']:.5f}_Lng_{data['longitude']:.5f}"
+
+                # 2. If 'last' failed, try fresh request (blocking)
+                logger.info(f"Requesting fresh update (provider: {provider})...")
+                # timeout increased to 30s for weak signals
+                cmd_fresh = ["termux-location", "-p", provider, "-r", "once"]
+                proc = subprocess.run(cmd_fresh, capture_output=True, text=True, timeout=30)
+
+                if proc.returncode == 0 and proc.stdout.strip():
+                    data = json.loads(proc.stdout)
+                    if "latitude" in data:
+                        logger.info(f"Location found via {provider} (fresh).")
+                        return f"_Lat_{data['latitude']:.5f}_Lng_{data['longitude']:.5f}"
+            
+            except subprocess.TimeoutExpired:
+                logger.warning(f"Timeout trying provider '{provider}'")
+            except Exception as e:
+                logger.warning(f"Error trying provider '{provider}': {e}")
+        
+        logger.error("All providers (gps, network, passive) failed to return a location.")
         return None
 
     def process_directory(self):
