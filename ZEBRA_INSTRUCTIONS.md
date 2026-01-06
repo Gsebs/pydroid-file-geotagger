@@ -41,3 +41,24 @@ python geo_renamer.py /sdcard/Documents/TargetFolder
 ```
 
 **Note**: When you first run it, it might ask for **Location Permissions** (via the Termux:API). **Allow** it (select "Allow all the time" or "Allow while using app").
+
+## How to Create Test Files (in Termux)
+If you want to create a dummy folder to test with, just run these commands inside Termux:
+
+1.  **Create the folder**:
+    ```bash
+    mkdir -p /sdcard/Documents/GeoTest
+    ```
+
+2.  **Create dummy files**:
+    ```bash
+    touch /sdcard/Documents/GeoTest/file1.txt
+    touch /sdcard/Documents/GeoTest/image.jpg
+    touch /sdcard/Documents/GeoTest/notes.csv
+    ```
+
+3.  **Run the script on this test folder**:
+    ```bash
+    python geo_renamer.py /sdcard/Documents/GeoTest
+    ```
+

@@ -123,21 +123,32 @@ class GeoTagger:
 
         logger.info("SL4A failed/missing. Trying 'termux-location'...")
         try:
-            # -p gps tries GPS provider, -p network tries network
-            # -r last might be stale.
-            # We will try a single request with timeout
-            cmd = ["termux-location", "-p", "gps", "-r", "last"] 
-            # Note: real termux-location might block until fix if not using 'last'
-            # strict/request is better: `termux-location -p gps` (blocks)
+            # First, check 'last' known location for speed
+            cmd_last = ["termux-location", "-p", "gps", "-r", "last"]
+            proc = subprocess.run(cmd_last, capture_output=True, text=True, timeout=3)
+            if proc.returncode == 0 and proc.stdout.strip():
+                data = json.loads(proc.stdout)
+                lat = data.get("latitude")
+                lng = data.get("longitude")
+                # Ensure data is not too old? For now assume OK.
+                if lat and lng:
+                    return f"_Lat_{lat:.5f}_Lng_{lng:.5f}"
             
-            # Let's try non-blocking first (last known)
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            if proc.returncode == 0:
+            # If last failed, try a fresh request (blocking)
+            # This is critical if the GPS hasn't been used recently
+            logger.info("No cached location. Requesting fresh GPS update (this may take 10-20s)...")
+            cmd_fresh = ["termux-location", "-p", "gps", "-r", "once"]
+            proc = subprocess.run(cmd_fresh, capture_output=True, text=True, timeout=25)
+            
+            if proc.returncode == 0 and proc.stdout.strip():
                 data = json.loads(proc.stdout)
                 lat = data.get("latitude")
                 lng = data.get("longitude")
                 if lat and lng:
                     return f"_Lat_{lat:.5f}_Lng_{lng:.5f}"
+            
+        except subprocess.TimeoutExpired:
+            logger.error("Termux location request timed out.")
         except Exception as e:
             logger.warning(f"Termux location attempt failed: {e}")
         
