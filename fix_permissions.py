@@ -1,15 +1,33 @@
+import sys
+
+# DEBUG: Check what we actually imported
 try:
     import android
+    # Check if this is the REAL android module (SL4A) or a fake/PyPI one
+    if not hasattr(android, 'Android'):
+        print("Warning: Imported 'android' module but it has no 'Android' class.")
+        print("You likely installed the wrong package via 'pip install android'.")
+        print("Attempting to uninstall it automatically could be dangerous, so we will try falling back to androidhelper.")
+        del android
+        raise ImportError("Wrong android module")
 except ImportError:
+    android = None
+
+if not android:
     try:
         import androidhelper as android
     except ImportError:
-        print("Error: Neither 'android' nor 'androidhelper' modules found.")
-        print("Make sure you are running this in Pydroid 3 with the Repository Plugin installed.")
-        import sys
+        print("Error: Neither 'android' nor 'androidhelper' (SL4A) modules found.")
+        print("FIX:")
+        print("1. If you ran 'pip install android', run 'pip uninstall android' in Terminal.")
+        print("2. Install 'Pydroid Repository Plugin' from the Play Store.")
         sys.exit(1)
 
-droid = android.Android()
+try:
+    droid = android.Android()
+except AttributeError:
+    print("Critical Error: The android module loaded does not have .Android().")
+    sys.exit(1)
 
 print("Attempting to request permissions...")
 # This often forces the dialog to appear in Pydroid 3

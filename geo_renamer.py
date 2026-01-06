@@ -31,16 +31,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Attempt to import Android SL4A Library
+SERVER_AVAILABLE = False
+droid_module = None
+
 try:
     import android
-    SERVER_AVAILABLE = True
+    if hasattr(android, 'Android'):
+        droid_module = android
+        SERVER_AVAILABLE = True
 except ImportError:
+    pass
+
+if not SERVER_AVAILABLE:
     try:
-        import androidhelper as android
+        import androidhelper
+        droid_module = androidhelper
         SERVER_AVAILABLE = True
     except ImportError:
-        SERVER_AVAILABLE = False
-        logger.warning("Android module not found. GPS functionality will be simulated if not on an Android device.")
+        pass
+
+if not SERVER_AVAILABLE:
+    logger.warning("Android module (SL4A) not found. GPS functionality will be simulated or unavailable.")
 
 class GeoTagger:
     def __init__(self, directory, timeout=60, dry_run=False):
@@ -49,69 +60,88 @@ class GeoTagger:
         self.dry_run = dry_run
         self.droid = None
         
-        if SERVER_AVAILABLE:
+        if SERVER_AVAILABLE and droid_module:
             try:
-                self.droid = android.Android()
+                self.droid = droid_module.Android()
             except Exception as e:
                 logger.error(f"Failed to initialize Android object: {e}")
                 sys.exit(1)
 
     def get_location(self):
         """
-        Acquires the current location (Latitude, Longitude).
-        Returns a formatted string suffix: '_Lat_XX.XXXXX_Lng_YY.YYYYY'
+        Acquires available location (Latitude, Longitude).
+        Tries Android/SL4A first, then Termux, then Mock if testing.
         """
-        if not self.droid:
-            logger.error("Android service not available. Cannot retrieve real GPS data.")
-            return None
-
-        logger.info("Starting location service...")
-        self.droid.startLocating()
-        
-        logger.info(f"Waiting up to {self.timeout} seconds for a fix...")
-        start_time = time.time()
-        location = None
-        
-        try:
-            while time.time() - start_time < self.timeout:
-                # readLocation().result returns {'gps': {...}, 'network': {...}}
-                reading = self.droid.readLocation().result
-                
-                if reading:
-                    if 'gps' in reading:
-                        location = reading['gps']
-                        logger.info("GPS provider fix acquired.")
-                        break
-                    elif 'network' in reading:
-                        location = reading['network']
-                        # We continue loop briefly to see if GPS comes in, 
-                        # but store this as fallback. 
-                        # For speed over precision, we can break here if preferred.
-                        # Here we will break for network to be responsive.
-                        logger.info("Network provider fix acquired.")
-                        break
-                
-                time.sleep(1)
-        except Exception as e:
-            logger.error(f"Error during location read: {e}")
-        finally:
-            self.droid.stopLocating()
-            logger.info("Location service stopped.")
-
-        if location:
+        # 1. Try SL4A (Pydroid 3)
+        if self.droid:
+            logger.info("Starting SL4A location service...")
+            self.droid.startLocating()
+            
+            logger.info(f"Waiting up to {self.timeout} seconds for a fix...")
+            start_time = time.time()
+            
             try:
-                lat = location['latitude']
-                lng = location['longitude']
-                # Create a safe string. 
-                # User requested: File.txt -> File[GPS].txt
-                # Format: _Lat_34.12345_Lng_-118.12345
-                return f"_Lat_{lat:.5f}_Lng_{lng:.5f}"
-            except KeyError:
-                logger.error("Location data malformed.")
-                return None
-        else:
-            logger.error("Timed out. Could not retrieve location. Ensure GPS is ON.")
+                while time.time() - start_time < self.timeout:
+                    reading = self.droid.readLocation().result
+                    if reading:
+                        if 'gps' in reading:
+                            lat = reading['gps']['latitude']
+                            lng = reading['gps']['longitude']
+                            self.droid.stopLocating()
+                            return f"_Lat_{lat:.5f}_Lng_{lng:.5f}"
+                        elif 'network' in reading:
+                            # Keep network as fallback but prefer wait for GPS?
+                            # For now return immediately if found
+                            lat = reading['network']['latitude']
+                            lng = reading['network']['longitude']
+                            self.droid.stopLocating()
+                            return f"_Lat_{lat:.5f}_Lng_{lng:.5f}"
+                    time.sleep(1)
+            except Exception as e:
+                logger.error(f"Error during SL4A location read: {e}")
+            finally:
+                self.droid.stopLocating()
+
+        # 2. Try Termux (subprocess) if SL4A failed or is missing
+        termux_loc = self.get_termux_location()
+        if termux_loc:
+            return termux_loc
+
+        logger.error("Timed out. Could not retrieve location. Ensure GPS is ON.")
+        return None
+
+    def get_termux_location(self):
+        """
+        Attempts to get location via `termux-location` command.
+        """
+        import shutil
+        import subprocess
+        import json
+
+        if not shutil.which("termux-location"):
             return None
+
+        logger.info("SL4A failed/missing. Trying 'termux-location'...")
+        try:
+            # -p gps tries GPS provider, -p network tries network
+            # -r last might be stale.
+            # We will try a single request with timeout
+            cmd = ["termux-location", "-p", "gps", "-r", "last"] 
+            # Note: real termux-location might block until fix if not using 'last'
+            # strict/request is better: `termux-location -p gps` (blocks)
+            
+            # Let's try non-blocking first (last known)
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if proc.returncode == 0:
+                data = json.loads(proc.stdout)
+                lat = data.get("latitude")
+                lng = data.get("longitude")
+                if lat and lng:
+                    return f"_Lat_{lat:.5f}_Lng_{lng:.5f}"
+        except Exception as e:
+            logger.warning(f"Termux location attempt failed: {e}")
+        
+        return None
 
     def process_directory(self):
         """
